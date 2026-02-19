@@ -1,1 +1,8 @@
-# Alle Parameter das Modells
+# Alle Parameter
+VOCAB_SIZE = 65
+CONTEXT_LEN = 16
+EMBEDDING_DIM = 32
+NUM_HEADS = 4
+NUM_LAYERS = 2
+HEAD_DIM = 8
+FEEDFORWARD_DIM = 128
