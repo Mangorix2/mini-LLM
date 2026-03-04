@@ -33,7 +33,7 @@ class AttentionHead(nn.Module):
 class MultiHeadAttention(nn.Module):
     # Hier laufen mehrere Attentionheads parallel um verschieden Kontext sachen zu machen
     # Das Ergbnis wird dann zusammengetan und durchgemischt
-    
+
     def __init__(self):
         super().__init__()
         self.heads = nn.ModuleList([
@@ -45,3 +45,20 @@ class MultiHeadAttention(nn.Module):
         concatenated = torch.cat([head(input_tensor) for head in self.heads], dim=-1)
         return self.output_projection(concatenated)
     
+class TransformerBlock(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.attention = MultiHeadAttention()
+        self.mlp = nn.Sequential(
+            nn.Linear(EMBEDDING_DIM, FEEDFORWARD_DIM),
+            nn.GELU(),
+            nn.Linear(FEEDFORWARD_DIM, EMBEDDING_DIM)
+        )
+        self.layer_norm_1 = nn.LayerNorm(EMBEDDING_DIM)
+        self.layer_norm_2 = nn.LayerNorm(EMBEDDING_DIM)
+
+    def forward(self, x):
+        x = x + self.attention(self.layer_norm_1(x))  # Layer 1 
+        x = x + self.mlp(self.layer_norm_2(x))        # Layer 2 
+        return x
+
