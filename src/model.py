@@ -62,3 +62,28 @@ class TransformerBlock(nn.Module):
         x = x + self.mlp(self.layer_norm_2(x))        # Layer 2 
         return x
 
+class Gpt(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.token_embedding    = nn.Embedding(VOCAB_SIZE, EMBEDDING_DIM)
+        self.position_embedding = nn.Embedding(CONTEXT_LEN, EMBEDDING_DIM)
+        self.blocks = nn.Sequential(*[
+            TransformerBlock() for i in range(NUM_LAYERS)
+        ])
+        self.layer_norm = nn.LayerNorm(EMBEDDING_DIM)
+        self.output_head = nn.Linear(EMBEDDING_DIM, VOCAB_SIZE, bias=False)
+
+    def forward(self, token_indices):
+        token_emb = self.token_embedding(token_indices)
+        
+        positions = torch.arange(token_indices.shape[1])
+        position_emb = self.position_embedding(positions)
+
+        x = token_emb + position_emb
+
+        x = self.blocks(x)
+        x = self.layer_norm(x)
+        x = self.output_head(x)
+        return x
+
