@@ -62,7 +62,7 @@ class TransformerBlock(nn.Module):
         x = x + self.mlp(self.layer_norm_2(x))        # Layer 2 
         return x
 
-class Gpt(nn.Module):
+class SmallLM(nn.Module):
 
     def __init__(self):
         super().__init__()
