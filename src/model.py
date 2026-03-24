@@ -23,7 +23,7 @@ class AttentionHead(nn.Module):
         attention_scores = queries @ keys.transpose(-2, -1)
         attention_scores = attention_scores / (HEAD_DIM ** 0.5 )
 
-        mask = torch.tril(torch.ones(input_tensor.shape[1], input_tensor.shape[1]))
+        mask = torch.tril(torch.ones(input_tensor.shape[1], input_tensor.shape[1], device=input_tensor.device))
         attention_scores = attention_scores.masked_fill(mask == 0, float('-inf'))
 
         attention_weights = torch.softmax(attention_scores, dim=-1)
@@ -77,7 +77,7 @@ class SmallLM(nn.Module):
     def forward(self, token_indices):
         token_emb = self.token_embedding(token_indices)
         
-        positions = torch.arange(token_indices.shape[1])
+        positions = torch.arange(token_indices.shape[1], device=token_indices.device)
         position_emb = self.position_embedding(positions)
 
         x = token_emb + position_emb
