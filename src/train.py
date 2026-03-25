@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
-from model import SmallLM
+from model import SmaLLM
 from data import TextDataset
 from config import *
 import time
@@ -37,7 +37,7 @@ def train(resume_from=None, start_step=0):
     dataset = TextDataset('data/input.txt')
     dataLoader = DataLoader(dataset, batch_size=32, shuffle=True, num_workers=6)
 
-    model = SmallLM().to(device) 
+    model = SmaLLM().to(device) 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     loss_fn = nn.CrossEntropyLoss()
 

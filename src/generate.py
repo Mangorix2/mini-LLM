@@ -1,5 +1,5 @@
 import torch
-from model import SmallLM
+from model import SmaLLM
 from data import build_tokenizer, load_text
 from config import *
 
@@ -25,7 +25,7 @@ def generator(model, tokenizer, start_text, max_new_tokes=200):
     return ''.join([int_to_char[i] for i in output_indices])
 
 if __name__ == '__main__':
-    model = SmallLM()
+    model = SmaLLM()
     model.load_state_dict(torch.load('epochs/epoch4.pt'))
     
     text = load_text('data/input.txt')
