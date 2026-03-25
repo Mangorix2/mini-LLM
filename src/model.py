@@ -3,7 +3,7 @@ import torch.nn as nn
 from config import *
 
 class AttentionHead(nn.Module):    
-    # Ein einzelner AttentionHead (no shit)
+    # Ein einzelner AttentionHead
     # Er berechnet für jeden Token (Wort meistens) wie stark er auf andere achten soll -> Kontext
 
     def __init__(self):
@@ -56,10 +56,11 @@ class TransformerBlock(nn.Module):
         )
         self.layer_norm_1 = nn.LayerNorm(EMBEDDING_DIM)
         self.layer_norm_2 = nn.LayerNorm(EMBEDDING_DIM)
+        self.dropout = nn.Dropout(DROPOUT)
 
     def forward(self, x):
-        x = x + self.attention(self.layer_norm_1(x))  # Layer 1 
-        x = x + self.mlp(self.layer_norm_2(x))        # Layer 2 
+        x = x + self.dropout(self.attention(self.layer_norm_1(x)))  # Layer 1 
+        x = x + self.dropout(self.mlp(self.layer_norm_2(x)))       # Layer 2 
         return x
 
 class SmaLLM(nn.Module):
