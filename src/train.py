@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.amp import autocast, GradScaler
 from model import SmallLM
 from data import TextDataset
 from config import *
@@ -27,6 +28,7 @@ def save_checkpoint(model, step, epoch=False):
 
 def train(resume_from=None, start_step=0):
 
+    NUM_EPOCHS = 2
     global_step = start_step
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -35,15 +37,15 @@ def train(resume_from=None, start_step=0):
     dataset = TextDataset('data/input.txt')
     dataLoader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-    model = SmallLM().to(device)
-    if resume_from:
-        model.load_state_dict(torch.load(resume_from))
-        print(f"Model geladen: {resume_from}")
-    
+    model = SmallLM().to(device) 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     loss_fn = nn.CrossEntropyLoss()
 
-    NUM_EPOCHS = 2
+    scaler = GradScaler(device='cuda', enabled=torch.cuda.is_available())
+
+    if resume_from:
+        model.load_state_dict(torch.load(resume_from))
+        print(f"Model geladen: {resume_from}")
 
     for epoch in range(NUM_EPOCHS):
         epoch_start = time.time()
@@ -54,12 +56,15 @@ def train(resume_from=None, start_step=0):
             input_batch = input_batch.to(device)
             target_batch = target_batch.to(device)
 
-            logits = model(input_batch)
-            loss = loss_fn(logits.view(-1, VOCAB_SIZE), target_batch.view(-1))
+            with autocast(device_type=('cuda' if torch.cuda.is_available() else 'cpu')):
+                logits = model(input_batch)
+                loss = loss_fn(logits.view(-1, VOCAB_SIZE), target_batch.view(-1))
 
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step() 
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+
+            scaler.update()
 
             if global_step % 100 == 0:
                 print(f"Epoch {epoch + 1}, Step {global_step}, Loss: {loss.item():.4f}")
