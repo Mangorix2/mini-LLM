@@ -35,7 +35,7 @@ def train(resume_from=None, start_step=0):
     print(f"Training auf: {device}")
 
     dataset = TextDataset('data/input.txt')
-    dataLoader = DataLoader(dataset, batch_size=32, shuffle=True)
+    dataLoader = DataLoader(dataset, batch_size=32, shuffle=True, num_workers=6)
 
     model = SmallLM().to(device) 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
@@ -44,7 +44,7 @@ def train(resume_from=None, start_step=0):
     scaler = GradScaler(device='cuda', enabled=torch.cuda.is_available())
 
     if resume_from:
-        model.load_state_dict(torch.load(resume_from))
+        model.load_state_dict(torch.load(resume_from, map_location=device))
         print(f"Model geladen: {resume_from}")
 
     for epoch in range(NUM_EPOCHS):
