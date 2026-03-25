@@ -43,7 +43,7 @@ def train(resume_from=None, start_step=0):
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
     loss_fn = nn.CrossEntropyLoss()
 
-    NUM_EPOCHS = 1
+    NUM_EPOCHS = 2
 
     for epoch in range(NUM_EPOCHS):
         epoch_start = time.time()
@@ -69,8 +69,8 @@ def train(resume_from=None, start_step=0):
 
         epoch_time = time.time() - epoch_start
         print(f"Epoch {epoch + 1 } fertig – Zeit: {epoch_time:.1f}s")
-        save_checkpoint(model, epoch + 1, epoch=True)
+        save_checkpoint(model, epoch + 3, epoch=True)
 
 
 if __name__ == '__main__':
-    train(resume_from='checkpoint/model_step12000.pt', start_step=12000)
+    train(resume_from='epochs/epoch2.pt')

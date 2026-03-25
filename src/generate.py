@@ -26,10 +26,10 @@ def generator(model, tokenizer, start_text, max_new_tokes=200):
 
 if __name__ == '__main__':
     model = SmallLM()
-    model.load_state_dict(torch.load('checkpoint/epoch1_260318.pt'))
+    model.load_state_dict(torch.load('epochs/epoch4.pt'))
     
     text = load_text('data/input.txt')
     tokenizer = build_tokenizer(text)
     
-    output = generator(model, tokenizer, start_text="To be")
+    output = generator(model, tokenizer, start_text="To Be")
     print(output)
