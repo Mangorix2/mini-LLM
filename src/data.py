@@ -1,30 +1,22 @@
 import torch
 from torch.utils.data import Dataset
 from config import *
+import tiktoken
 
 def load_text(filepath):
     with open(filepath, 'r', encoding='utf-8') as file:
         text = file.read()
     return text
 
-def build_tokenizer(text):
-    characters = sorted(set(text))
-
-    char_to_int = {}
-    for index, char in enumerate(characters):
-        char_to_int[char] = index
-
-    int_to_char = {}
-    for index, char in enumerate(characters):
-        int_to_char[index] = char
-
-    return char_to_int, int_to_char
+def build_tokenizer():
+    enc = tiktoken.get_encoding("cl100k_base")
+    return enc
 
 class TextDataset(Dataset):
     def __init__(self, filepath):
         text = load_text(filepath)
-        self.char_to_int, self.int_to_char = build_tokenizer(text)
-        self.data = torch.tensor([self.char_to_int[c] for c in text])
+        self.enc = build_tokenizer()
+        self.data = torch.tensor(self.enc.encode(text))
     
     def __len__(self):
         return (len(self.data) - CONTEXT_LEN) 
