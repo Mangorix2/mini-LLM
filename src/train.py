@@ -38,7 +38,7 @@ def train(resume_from=None, start_step=0):
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
-    dataset = TextDataset('data/input.txt')
+    dataset = TextDataset()
     dataLoader = DataLoader(
         dataset,
         batch_size=6,
@@ -106,4 +106,4 @@ def train(resume_from=None, start_step=0):
 
 
 if __name__ == '__main__':
-    train(resume_from="checkpoint/model_step6500.pt", start_step=6500)
+    train()
