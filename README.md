@@ -1,86 +1,124 @@
-# SmaLLM — Minimal Transformer Language Model
-*IMPORTANT! THIS README IS AI GENERATED AND NOT WRITTEN BY ME*  
-A compact educational implementation of a GPT-like transformer in PyTorch.
-This repository shows a small, runnable training loop, tokenizer integration, and a simple generation script.
+# SmaLLM – Ein Sprachmodell von Grund auf
+*Wichtig! Dieses README ist zu Teil von KI-Generiert aber ich Arbeite noch an der Überarbeitung*
+## Wie ich gearbeitet habe
 
-## Key Features
-- Minimal Transformer architecture implemented in `src/model.py` (`SmaLLM`).
-- Data loading with `tiktoken` and Hugging Face `datasets` in `src/data.py`.
-- Training loop with mixed-precision support in `src/train.py` and checkpointing to `checkpoint/` and `epochs/`.
-- Simple sampling-based text generation in `src/generate.py`.
+Dieses Projekt entstand als Bottom-Up Lernprojekt: Jedes Modul wurde einzeln verstanden, geschrieben und getestet – bevor das nächste dazukam. Keine Copy-Paste Lösungen, kein Framework das die Arbeit übernimmt. Der Fokus lag darauf zu verstehen *warum* jede Zeile so ist wie sie ist, nicht nur *dass* sie funktioniert.
 
-## Repository Layout
+Reihenfolge: `config.py` → `model.py` (Head für Head) → `data.py` → `train.py` → `generate.py`. Jede Klasse wurde im `playground.ipynb` mit Dummy-Inputs getestet bevor sie in den nächsten Schritt eingebaut wurde.
 
-- `src/` — source code
-	- `config.py` — model and training hyperparameters
-	- `data.py` — tokenizer and dataset utilities
-	- `model.py` — Transformer implementation
-	- `train.py` — training entrypoint
-	- `generate.py` — simple generation example
-- `data/` — example local input files (e.g. `input.txt`)
-- `checkpoint/` — rolling checkpoints saved during training
-- `epochs/` — periodic full-epoch checkpoints
-- `requirements.txt` — Python dependencies
+---
 
-## Requirements
+## Projektstruktur
 
-Install dependencies (recommended in a virtualenv):
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate    # Windows PowerShell
-pip install -r requirements.txt
+```
+mini-LLM/
+├── src/
+│   ├── config.py        # Alle Hyperparameter
+│   ├── model.py         # Transformer-Architektur
+│   ├── data.py          # Tokenizer + Dataset
+│   ├── train.py         # Trainingsloop
+│   ├── generate.py      # Textgenerierung
+│   └── playground.ipynb # Tests
+├── checkpoint/          # Letzte 4 Checkpoints
+├── epochs/              # Checkpoint pro Epoch
+└── data/                # Lokale Trainingsdaten (optional)
 ```
 
-Notes:
-- `torch` version in `requirements.txt` is `>=2.6.0`. For CUDA support, install the matching CUDA build from PyTorch's website.
-- The project uses `tiktoken` as the tokenizer and the Hugging Face `datasets` library for example data.
+---
 
-## Quick Start — Training
+## Architektur
 
-By default `src/train.py` will:
-- build a dataset via `TextDataset` (it currently uses a small slice of the `wikimedia/wikipedia` dataset),
-- create the model `SmaLLM`,
-- train for a small number of epochs and save checkpoints in `checkpoint/` and `epochs/`.
+### model.py
 
-Run training:
+#### AttentionHead
 
-```bash
-python src/train.py
+Ein einzelner Attention-Kopf berechnet für jeden Token wie stark er auf andere Tokens achten soll. Das ist der Kern des Kontextverständnisses .
+
+```
+Input:  (batch, seq_len, EMBEDDING_DIM)
+Output: (batch, seq_len, HEAD_DIM)
 ```
 
-To resume training from a checkpoint:
+Ablauf:
+1. Query, Key, Value aus dem Input projizieren (je eine Linear-Schicht)
+2. Attention Scores: `Q @ K^T / sqrt(HEAD_DIM)`
+3. Causal Mask: zukünftige Tokens werden auf `-inf` gesetzt (das Modell darf nicht "schummeln")
+4. Softmax → Attention Weights
+5. Output: `Weights @ V`
+
+#### MultiHeadAttention
+
+Mehrere Heads laufen parallel – jeder lernt andere Muster (Syntax, Semantik, Referenzen). Die Outputs werden zusammengeführt und durch eine Projektion gemischt.
+
+```
+Input:  (batch, seq_len, EMBEDDING_DIM)
+Output: (batch, seq_len, EMBEDDING_DIM)
+```
+
+#### TransformerBlock
+
+Pre-Norm Architektur: LayerNorm kommt *vor* Attention und MLP, nicht danach. Residual Connections sorgen dafür dass der Gradient gut fliesst.
 
 ```python
-# example: in a Python session or adapt train.py to accept args
-from src.train import train
-train(resume_from='checkpoint/model_step500.pt', start_step=500)
+x = x + dropout(attention(layernorm(x)))  # Attention-Pfad
+x = x + dropout(mlp(layernorm(x)))        # MLP-Pfad
 ```
 
-Important training knobs are in `src/config.py` (vocab size, context length, embedding dim, number of layers/heads, dropout, ...).
+Das MLP (4× EMBEDDING_DIM) verarbeitet Information *pro Token* – während Attention Tokens miteinander vergleicht, "denkt" das MLP über jeden Token einzeln nach.
 
-## Generating Text
+#### SmaLLM
 
-Use `src/generate.py` to load a checkpoint and produce sampled continuations. Example usage (already in file):
+Das Gesamtmodell:
 
-```bash
-python src/generate.py
+```
+Token-Indizes (batch, seq_len)
+    → Token Embedding + Position Embedding
+    → N × TransformerBlock
+    → LayerNorm
+    → Linear → Logits (batch, seq_len, VOCAB_SIZE)
 ```
 
-Edit `src/generate.py` to point to a different checkpoint (e.g. `epochs/epoch4.pt` or a `checkpoint/model_stepXXXXX.pt`) or to change the `start_text` and `max_new_tokes`.
+Position Embeddings sind gelernt (nicht sinusoidal) – das Modell lernt selbst wie es Positionen codiert.
 
-## Using Local Data
+---
 
-To train on local text, place plain UTF-8 text in `data/input.txt` and modify `TextDataset` in `src/data.py` to call `load_text()` instead of the Hugging Face loader. `TextDataset` contains a comment showing where to change this.
+### data.py
 
-## Checkpoints
+#### Tokenizer
 
-- Checkpoints are stored in `checkpoint/` with names like `model_stepXXXXX.pt`.
-- The training script keeps up to 4 recent checkpoints and stores epoch snapshots in `epochs/`.
+Statt character-level (65 Zeichen) wird `tiktoken` mit `cl100k_base` verwendet – derselbe Tokenizer wie GPT-4. Ein Token entspricht ca. 3–4 Zeichen, häufige Wörter werden ein einzelner Token.
 
-## Notes & Tips
+```python
+enc = tiktoken.get_encoding("cl100k_base")
+tokens = enc.encode("Hallo Welt")  # → [39, 6316, ...]
+```
 
-- The implementation is intentionally minimal for learning and experimentation — it omits production features like sharding, optimizer state checkpointing, LR schedulers, distributed training, and evaluation metrics.
-- Adjust `batch_size`, `accumulation_steps`, or move training to a machine with a GPU for larger models or datasets.
-- If you see tokenization mismatches, verify the tokenizer (`tiktoken.get_encoding('cl100k_base')`) matches how you prepared training data.
+#### TextDataset
 
+Das Dataset lädt Artikel von HuggingFace (Wikipedia DE) und tokenisiert sie zu einem langen Tensor. `__getitem__` schneidet Chunks der Länge `CONTEXT_LEN` heraus:
+
+```
+Input:  data[i : i + CONTEXT_LEN]
+Target: data[i+1 : i + CONTEXT_LEN + 1]
+```
+
+Das Target ist immer um einen Token verschoben – das Modell lernt den *nächsten* Token vorherzusagen.
+
+---
+
+### train.py
+
+#### Trainingsloop
+
+- **Optimizer:** AdamW mit lr=3e-4
+- **Loss:** CrossEntropyLoss über alle Token-Positionen
+- **Mixed Precision:** `autocast` + `GradScaler` für schnelleres Training auf GPU (bfloat16)
+- **Gradient Clipping:** `clip_grad_norm_(..., 1.0)` verhindert explodierende Gradienten
+- **Gradient Accumulation:** 4 Steps akkumuliert = effektiv größerer Batch
+
+
+### generate.py
+
+Autoregressive Generierung: Das Modell gibt Logits für alle Positionen aus, aber nur der letzte Token (`logits[0, -1, :]`) wird für die Vorhersage verwendet. Softmax → multinomial Sampling → neuer Token wird angehängt. Wiederholen bis `max_new_tokens` erreicht.
+
+---
